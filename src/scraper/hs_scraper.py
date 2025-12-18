@@ -5,6 +5,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
 from src.utils.utils import body_text
+from src.scraper.data_extractors import extract_position
 
 def scrape_hs_recruiting_page(driver, hs_url: str):
     driver.get(hs_url)
@@ -102,6 +103,8 @@ def scrape_hs_recruiting_page(driver, hs_url: str):
                                 break
                         break
                 break
+
+    hs_pos = extract_position(driver) 
 
     return {
         "hs_class": hs_class,
