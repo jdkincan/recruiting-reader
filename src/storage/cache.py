@@ -56,5 +56,3 @@ def scrape_one(url):
     finally:
         try: drv.quit()
         except: pass
-
-
