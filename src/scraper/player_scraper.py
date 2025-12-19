@@ -64,9 +64,9 @@ def scrape_player(driver, player_url: str):
     lines = timeline_lines(txt2)
     events = parse_timeline_events(lines)
 
-    # HARD ASSERT: we must see Transfer + Enrolled
-    if not any(e.kind == "Transfer" for e in events):
-        raise RuntimeError("Timeline parsed but no Transfer events found")
+    # # HARD ASSERT: we must see Transfer + Enrolled
+    # if not any(e.kind == "Transfer" for e in events):
+    #     raise RuntimeError("Timeline parsed but no Transfer events found")
 
     if DEBUG and not any(e.kind == "Enrolled" for e in events):
         print("WARN: no Enrolled events; using commit-based fallback")

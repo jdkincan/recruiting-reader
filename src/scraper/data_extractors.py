@@ -201,14 +201,16 @@ def infer_origin_dest_from_timeline_events(events, candidates, window_start, win
         frag = extract_school_fragment(e.text)
         cand = resolve_school_fragment(frag, candidates) if frag else None
 
-        # FALLBACK: truncated "commits to..." -> use most recent institution
-        cand = cand or most_recent_other(candidates)
-
+        # DO NOT fallback to candidates for destination (causes Oregon->Oregon bug)
         if cand:
             dest = cand
             dest_dt = e.date
             dest_idx = i
             break
+        else:
+            # keep searching older transfer events in window; if none resolve, treat as unresolved dest
+            pass
+
 
     # --- if destination found, origin is nearest earlier school-bearing event that resolves ---
     if dest_dt is not None:
