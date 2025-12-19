@@ -90,11 +90,11 @@ def scrape_player(driver, player_url: str):
             pass
         cands = get_ncaa_institutions(driver)
 
-    origin, dest, commit_dt = infer_origin_dest_from_timeline_events(
+    origin, dest, commit_dt, status = infer_origin_dest_from_timeline_events(
         events,
         candidates=cands,
-        window_start=datetime(2024, 11, 15),
-        window_end=datetime(2025, 8, 1),
+        window_start=datetime(2024, 9, 21),
+        window_end=datetime(2025, 9, 20),
     )
 
     portal_season_year = None
@@ -128,6 +128,7 @@ def scrape_player(driver, player_url: str):
         "transfer_stars": transfer_stars,
         "transfer_origin": origin,
         "transfer_destination": dest,
+        "transfer_status": status,
         **hs_data,
         "hs_stars": hs_stars,
         "source_hs_url": hs_url,

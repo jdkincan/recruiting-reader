@@ -13,6 +13,8 @@ from src.config import DATE_RE
 
 from src.utils.utils import body_text
 from src.utils.utils import _has_date_lines
+from src.utils.utils import is_school_event
+from src.utils.utils import most_recent_other
 
 
 # extract transfer elements
@@ -150,7 +152,7 @@ def extract_school_fragment(event_text: str):
     From a timeline description line, extract the trailing school fragment.
     Handles: "commits to X", "enrolls at X"
     """
-    m = re.search(r"\b(commits to|enrolls at)\s+(.+)$", event_text, flags=re.IGNORECASE)
+    m = re.search(r"\b(transfers to|commits to|committed to|enrolls at)\s+(.+)$", event_text, flags=re.IGNORECASE)
     if not m:
         return None
     frag = m.group(2).strip()
@@ -178,53 +180,93 @@ def resolve_school_fragment(fragment: str, candidates: list[str]):
     return None
 
 def infer_origin_dest_from_timeline_events(events, candidates, window_start, window_end):
-    # --- DESTINATION: newest Transfer commit/enroll in window that resolves to a candidate ---
+    """
+    events: newest-first list[TL]
+    returns origin, dest, dt, status in {"committed","portal_only","none"}
+    """
+
+    # --- find destination (newest school-bearing Transfer event in window) ---
     dest = None
     dest_dt = None
+    dest_idx = None
 
-    for e in events:  # events are newest-first
+    for i, e in enumerate(events):
         if not (window_start <= e.date <= window_end):
             continue
-        if e.kind.lower() == "transfer":
-            frag = extract_school_fragment(e.text)  # commits to / enrolls at
-            if not frag:
-                continue
-            cand = resolve_school_fragment(frag, candidates)
-            if cand:
-                dest = cand
-                dest_dt = e.date
-                break
+        if e.kind.lower() != "transfer":
+            continue
+        if not is_school_event(e.text):
+            continue
 
-    if not dest_dt:
-        return None, None, None
+        frag = extract_school_fragment(e.text)
+        cand = resolve_school_fragment(frag, candidates) if frag else None
 
-    # Helper to find ORIGIN by priority, skipping fragments that don't resolve
-    def find_prior_resolving_origin(kinds):
-        for e in events:
+        # FALLBACK: truncated "commits to..." -> use most recent institution
+        cand = cand or most_recent_other(candidates)
+
+        if cand:
+            dest = cand
+            dest_dt = e.date
+            dest_idx = i
+            break
+
+    # --- if destination found, origin is nearest earlier school-bearing event that resolves ---
+    if dest_dt is not None:
+        origin = None
+
+        for j in range(dest_idx + 1, len(events)):  # walk backwards in time (older events)
+            e = events[j]
             if e.date >= dest_dt:
                 continue
-            if e.kind.lower() in kinds:
-                frag = extract_school_fragment(e.text)
-                if not frag:
-                    continue
-                cand = resolve_school_fragment(frag, candidates)
-                if cand and cand != dest:
-                    return cand
-        return None
+            if not is_school_event(e.text):
+                continue
 
-    # --- ORIGIN priority ---
-    origin = find_prior_resolving_origin({"enrolled"})
-    if not origin:
-        origin = find_prior_resolving_origin({"transfer"})   # prior transfer destination = current origin
-    if not origin:
-        origin = find_prior_resolving_origin({"commit", "signed"})
+            frag = extract_school_fragment(e.text)
+            cand = resolve_school_fragment(frag, candidates) if frag else None
+            cand = cand or most_recent_other(candidates, exclude=dest)   # fallback
+            if cand and cand != dest:
+                origin = cand
+                break
 
-    # Final fallback: any other NCAA school from dropdown
-    if not origin and candidates:
-        others = [c for c in candidates if c != dest]
-        origin = others[0] if others else None
+        # fallback: pick any other candidate school
+        if not origin and candidates:
+            others = [c for c in candidates if c != dest]
+            origin = others[0] if others else None
 
-    return origin, dest, dest_dt
+        return origin, dest, dest_dt, "committed"
+
+    # --- portal-only case (entered portal but no destination) ---
+    portal_dt = None
+    portal_idx = None
+    for i, e in enumerate(events):
+        if not (window_start <= e.date <= window_end):
+            continue
+        if e.kind.lower() == "transfer" and "entered the transfer portal" in (e.text or "").lower():
+            portal_dt = e.date
+            portal_idx = i
+            break
+
+    if portal_dt is not None:
+        origin = None
+        for j in range(portal_idx + 1, len(events)):
+            e = events[j]
+            if e.date >= portal_dt:
+                continue
+            if not is_school_event(e.text):
+                continue
+            frag = extract_school_fragment(e.text)
+            cand = resolve_school_fragment(frag, candidates) if frag else None
+            cand = cand or most_recent_other(candidates, exclude=dest)   # fallback
+            if cand and cand != dest:
+                origin = cand
+                break
+
+        if not origin and candidates:
+            origin = candidates[0]
+
+        return origin, None, portal_dt, "portal_only"
+
+    return None, None, None, "none"
 
 # Extract NCAA institution names from the institution dropdown using fuzzy matching
 def get_ncaa_institutions(driver):

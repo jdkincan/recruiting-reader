@@ -1,4 +1,4 @@
-from src.utils import body_text
+from src.utils.utils import body_text
 from src.scraper.data_extractors import open_timeline, parse_timeline_events, timeline_lines
 
 
