@@ -1,14 +1,16 @@
 # Recruiting Reader
 Python + Selenium project for reading/scraping transfer-portal recruiting information into machine-readable data for downstream analysis.
 ## Quick start
-```git clone https://github.com/jdkincan/recruiting-reader.git
+```
+git clone https://github.com/jdkincan/recruiting-reader.git
 cd recruiting-reader
 
 python -m venv .venv
 source .venv/bin/activate  # macOS/Linux
 # .venv\Scripts\activate   # Windows PowerShell
 
-pip install -r requirements.txt```
+pip install -r requirements.txt
+```
 
 ## Run
 From the repo root, run the project’s entrypoint (check notebooks/ for main.ipynb)
